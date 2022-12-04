@@ -1,8 +1,8 @@
-FROM fuzzers/afl:2.52
+FROM fuzzers/afl:2.52 as builder
 
 RUN apt-get update
 RUN apt install -y build-essential wget git clang cmake  automake autotools-dev  libtool zlib1g zlib1g-dev libexif-dev libjpeg-dev
-RUN git clone https://github.com/posva/catimg.git
+ADD . /catimg
 WORKDIR /catimg
 RUN cmake -DCMAKE_C_COMPILER=afl-clang -DCMAKE_CXX_COMPILER=afl-clang .
 RUN make
@@ -29,5 +29,9 @@ RUN wget https://github.com/strongcourage/fuzzing-corpus/blob/master/png/ImageMa
 RUN wget https://github.com/strongcourage/fuzzing-corpus/blob/master/png/ImageMagick/wizard.png
 RUN mv *.png /catimgCorpus
 
-ENTRYPOINT ["afl-fuzz", "-i", "/catimgCorpus", "-o", "/catimgOut"]
-CMD ["/catimg/bin/catimg", "@@"]
+FROM fuzzers/afl:2.52
+COPY --from=builder /catimg/bin/catimg /
+COPY --from=builder /catimgCorpus /testsuite/
+
+ENTRYPOINT ["afl-fuzz", "-i", "/testsuite/", "-o", "/catimgOut"]
+CMD ["/catimg", "@@"]
